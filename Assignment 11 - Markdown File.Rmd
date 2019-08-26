@@ -1,0 +1,144 @@
+---
+title: "Regression Model Course Project"
+author: "A. Johnson"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output: 
+        html_document:
+        keep_md: true
+---
+
+##Executive Summary ##
+
+As a (fictional) employee of Motor Trend, a magazine about the automobile industry, I was interested in exploring the relationships between automobile design characteristics and miles per gallon (MPG). My analysis described below details that choosing a car with an automatic versus a manual transmission does not significantly impact the miles per gallon after adjusting for number of cylinders, displacement, gross horsepower, rear axel ratio, and weight of the car. However, uncertainty remains in our conclusion due to unknown correlates of MPG not available to us in the dataset and therefore, not included in the final adjusted model. 
+
+```{r libs, include = FALSE}
+        # include = FALSE means this block won't be displayed
+        #This block will not be shown in the report
+
+        options(scipen=999) #Prevents the numbers from being displayed in scientific notation
+
+        library(R.utils)
+        library(datasets)
+        library(rmarkdown)
+        library(knitr)
+        library(tidyverse)
+        library(ggplot2)
+        library(gridExtra)
+        library(UsingR)
+        # Adding a block that allows us to automatically save the figures in a folder to github
+        knitr::opts_chunk$set(echo = TRUE)
+        
+        knitr::opts_chunk$set( fig.path = "figures/fig-")
+        
+        Sys.setlocale("LC_TIME", "English")
+        
+
+```
+
+## Exploratory Data Analysis ##
+
+The goal of the below code was to examine the variables included in the "mtcars" dataset, recode factor variables as desired, and examine the distribution of the MPG variable by transmission type and engine type. 
+
+```{r EDA, echo=FALSE}
+
+data(mtcars)
+head(mtcars)
+
+#How are all of the aspects of automobile design related to MPG?
+cor(mtcars)[1,]
+```
+
+Evaluating the correlation table, the following variables have at least moderate correlation to mpg: cyl, disp, hp, drat, wt, vs, and am (correlation > 0.6 or < -0.6). The distribution of MPG (overall, by transmission type, and by engine type) was also evaluated during exploratory data analysis. See the appendix for figures. Looking at the box plots, the ranges of MPG overlap by transmission type and engine type when evaluating the distributions of whiskers. There is also a possible outlier in the v-shaped engine type. 
+
+## Bivariate and Multivariable Models ##
+
+```{r models, echo=FALSE}
+
+#Bivariate model of the influence of transmission type on mpg:
+        biv = lm(mpg ~ factor(am), data = mtcars)
+        summary(biv)$coefficients
+#Adding all other covariates in the model:        
+        multivar = lm(mpg ~ ., data = mtcars)
+```
+
+```{r modelsp2, include = FALSE}
+        biv_radjust = round(summary(biv)$adj.r.squared, 2)
+        biv_inter = round(summary(biv)$coefficients[1,1], 2)
+        biv_beta = round(summary(biv)$coefficients[2,1], 2)
+        biv_manual = round(biv_inter+biv_beta, 2)
+        bivp = summary(biv)$coefficients[2,4]
+
+        multivar_radjust = round(summary(multivar)$adj.r.squared, 2)
+        multivarp = round(summary(multivar)$coefficients[9,4], 2)
+        
+```
+
+In the bivariate model, transmission type is significantly associated with MPG (p=`r bivp`) with a significance level set at p=0.0001. On average, cars with manual transmission have a significantly higher amount of miles per gallon (`r biv_manual`) than cars with automatic transmission (`r biv_inter` MPG). Typically, it's good practice to avoid selecting the bivariate model as the final model because it fails to take into account the effects of other variables on the outcome. Omitting variables can result in bias in the coefficients of interest if the regressors are correlated with the omitted variables. In fact, when all other covariates were included in the model, the relationship between transmission type and MPG was no longer significant (p=`r multivarp`). 
+
+Now, let's check to see if I included any redundant variables in the model and explore whether reducing the number of variables improves model fit. Including variables that are unrelated to the model can increase standard errors. Based on the correlation matrix reported above, I see that cyl, disp, hp, drat, and wt have the strongest correlations with mpg. Let's include these in our model with transmission type and see if model fit improves:
+
+```{r finalmodel, echo=FALSE}
+        
+finalmodel = lm(mpg ~ cyl + disp + hp + drat + wt + factor(am), data = mtcars)
+summary(finalmodel)$coefficients
+```
+
+```{r finalmodelp2, include = FALSE}
+# include = FALSE means this block won't be displayed
+finalmodel_radjust = round(summary(finalmodel)$adj.r.squared, 2)
+finalmodel_var = finalmodel_radjust*100
+finalmodel_inter = round(summary(finalmodel)$coefficients[1,1], 2)
+finalmodel_manual = round(summary(finalmodel)$coefficients[7,1], 2)
+finalmodel_manualp = round(summary(finalmodel)$coefficients[7, 4], 2)
+finalmodel_wt = round(summary(finalmodel)$coefficients[6,1], 2)
+finalmodel_wtp = round(summary(finalmodel)$coefficients[6, 4], 2)
+
+```        
+
+The adjusted R^2 statistic that describes model fit in the adjusted, final model (adjusted R^2=`r finalmodel_radjust`) improves from the model fit in the bivariate model (adjusted R^2=`r biv_radjust`) and the full model (adjusted R^2=`r multivar_radjust`). This means that in the final model, `r finalmodel_var`% of the total variance is described by the model. Transmission type is not significantly associated with MPG (p=`r finalmodel_manualp`) and weight of the car is significantly associated with MPG (p=`r finalmodel_wtp`). 
+
+## Examining Model Fit ##
+
+Lastly, I examined residuals, leverage, and influence measures in the final model. For the sake of brevity, the figures are included in the appendix. The plots below are diagnostic tools to evaluate systemic patterns in the data. Viewing the residual vs. fitted plot, we can see that our residuals are homoscedastic (i.e., have equal variance). Viewing the QQ plot, we can see that the errors are approximately normal and the residuals follow the plotted line. The other figures examine the influence of car types on our model within individual coefficients and as a collective. 
+
+
+## Appendix ##
+
+For figures, let's recode the "vs"" and "am"" as factor variables with labels.
+
+```{r EDAp2, include = FALSE}
+
+mtcars$vs = factor(mtcars$vs, 
+                   levels = c(0, 1), 
+                   labels = c("V-shaped", "Straight"))
+mtcars$am = factor(mtcars$am, 
+                   levels = c(0, 1), 
+                   labels = c("Automatic", "Manual"))
+
+```
+
+
+```{r EDAp3, fig.width=10, fig.align = "center"}
+ggplot(mtcars, aes(x=mpg)) +
+        geom_histogram(aes(y=..count.., fill=..count..), 
+                       color = "black") + 
+        labs(title="Distribution of Miles per Gallon", 
+             y="Frequency Count", x="Miles per Gallon (MPG)")
+
+ggplot(mtcars, aes(x=am, y=mpg)) + 
+        geom_boxplot() +
+        labs(title="Miles Per Gallon by Transmission Type",
+             x="Transmission Type", y = "MPG")
+
+ggplot(mtcars, aes(x=vs, y=mpg)) + 
+        geom_boxplot() +
+        labs(title="Miles Per Gallon by Engine Type",
+             x="Engine Type", y = "MPG")
+
+```
+
+```{r modelfit, fig.width=10, fig.align = "center"}
+#Plot the fit figures:
+par(mfrow = c(2, 2))
+plot(finalmodel)
+```
