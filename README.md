@@ -1,4 +1,4 @@
-# Regression-Model-Course-Project
+# Regression Model Course Project
 
 ##Executive Summary ##
 
